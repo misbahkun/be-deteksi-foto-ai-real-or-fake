@@ -1,0 +1,14 @@
+.venv/
+.git/
+.pytest_cache/
+.ruff_cache/
+.sisyphus/
+dataset/
+tests/
+scripts/
+__pycache__/
+*.pyc
+dummy.jpg
+.gitignore
+README.md
+requirements-dev.txt
