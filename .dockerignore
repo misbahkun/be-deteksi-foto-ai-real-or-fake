@@ -4,7 +4,6 @@
 .ruff_cache/
 .sisyphus/
 dataset/
-tests/
 scripts/
 __pycache__/
 *.pyc

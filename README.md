@@ -1,6 +1,8 @@
-# 🧠 Backend API - Deteksi Gambar Asli vs AI
+# 🧠 Backend API - PindAI (Deteksi Gambar Asli vs AI)
 
-Repositori ini berisi *source code* untuk Backend API sistem deteksi gambar apakah sebuah foto adalah asli (Real) atau hasil *generate* AI (Artificial). Sistem ini dirancang khusus untuk berjalan secara efisien di lingkungan CPU (tanpa GPU) menggunakan optimasi **ONNX Runtime**, dan akan dikonsumsi oleh aplikasi *mobile* berbasis **Flutter**.
+Repositori ini berisi *source code* untuk Backend API **PindAI**, sebuah sistem cerdas yang memindai apakah sebuah foto adalah asli (Real) tangkapan kamera atau hasil *generate* AI (Artificial) seperti Midjourney, DALL-E, dan Stable Diffusion. 
+
+Sistem ini dibangun untuk mendemonstrasikan implementasi *Computer Vision* pada lingkungan dengan sumber daya terbatas (Resource-Constrained Environments).Menggunakan arsitektur *microservices* yang sangat ringan, API ini berjalan secara efisien di lingkungan server CPU tua (tanpa GPU) berkat optimasi kompresi **ONNX Runtime (INT8)**, dan dirancang untuk dikonsumsi langsung oleh aplikasi *mobile* berbasis **Flutter**.
 
 ---
 
@@ -16,13 +18,9 @@ be-deteksi-foto-ai-real-or-fake/
 │   └── model.onnx          # Model SwinV2 INT8 Quantized (~190MB)
 ├── scripts/                  # Skrip utilitas/bantuan
 │   └── export_onnx.py      # Skrip untuk download & convert model dari HuggingFace ke ONNX
-├── tests/                    # Skenario Automated Testing (Pytest)
-│   ├── conftest.py         # Pengaturan fixture (Dummy ONNX model) untuk testing lokal
-│   └── test_predict.py     # 16+ Skenario pengujian endpoint (Validasi ukuran, format, dll)
 ├── Dockerfile                # Blueprint untuk merakit kontainer server aplikasi
-├── docker-compose.yml        # Konfigurasi deployment ke Proxmox/VPS
 ├── requirements.txt          # Library Python khusus untuk Production (Tanpa PyTorch)
-├── requirements-dev.txt      # Library Python untuk Development (Pytest, Transformers, dll)
+├── requirements-dev.txt      # Library Python untuk Development (Transformers, Optimum, dll)
 └── README.md                 # Dokumentasi Proyek ini
 ```
 
@@ -44,7 +42,7 @@ Arsitektur aplikasi dibangun dengan pendekatan *Client-Server* menggunakan arsit
 │     - Validasi MIME type (JPEG, PNG, WEBP)       │
 │                                                  │
 │  2. Image Preprocessing (app/model.py)           │
-│     - Resize 256x256 (Bicubic Interpolation)     │
+│     - Resize 256x256 (Bilinear Interpolation)    │
 │     - ImageNet Normalization (Mean & Std)        │
 │                                                  │
 │  3. AI Inference Engine (ONNX Runtime)           │
@@ -72,7 +70,7 @@ Ketika *user* mengunggah gambar dari aplikasi Flutter, berikut adalah alur kerja
 2. **Validasi Tipe Data:** Menggunakan pustaka `python-magic` untuk membaca *header* byte file (bukan sekadar ekstensi palsu) guna memastikan file benar-benar gambar.
 3. **Pre-processing Gambar:**
    - Dikonversi ke ruang warna `RGB`.
-   - Di-*resize* menjadi resolusi `256 x 256` pixel menggunakan metode *Bicubic* (mengikuti standar HuggingFace `AutoImageProcessor`).
+   - Di-*resize* menjadi resolusi `256 x 256` pixel menggunakan metode *Bilinear* (mengikuti konfigurasi `AutoImageProcessor` dari pencipta model asli).
    - Dinormalisasi menggunakan standar *ImageNet* (Pixel diubah ke rentang nilai 0-1, lalu dikurangi *mean* dan dibagi *standard deviation*).
    - Diubah bentuk (transpose) dari HWC (Height-Width-Channel) menjadi bentuk matriks CHW `[1, 3, 256, 256]` yang dipahami oleh model.
 4. **Inferensi AI:** Matriks gambar dimasukkan ke **ONNX Runtime**. Model mengekstraksi dan mempelajari pola *noise* atau artefak di dalam gambar untuk mengeluarkan *Logits* (nilai probabilitas mentah).
@@ -86,11 +84,11 @@ Ketika *user* mengunggah gambar dari aplikasi Flutter, berikut adalah alur kerja
 ### Spesifikasi Model: `Modotte/AIRealNet`
 - **Creator/Publisher:** Modotte (Tersedia publik di [HuggingFace - Modotte/AIRealNet](https://huggingface.co/Modotte/AIRealNet))
 - **Arsitektur Dasar:** SwinV2 Transformer (Swinv2ForImageClassification - Tiny Version). SwinV2 adalah *Vision Transformer* buatan Microsoft yang sangat canggih dalam mengenali pola hierarkis pada gambar.
-- **Dataset Pelatihan Utama (Training Data):** 
-  Model ini dilatih menggunakan dataset **ArtiFact** (Large-Scale Dataset for Artificial and Factual Image Identification) dan penggabungan dataset *open-source* lainnya yang terdiri dari ratusan ribu gambar yang dibagi menjadi dua kelas:
-  1. **Real (Asli):** Terdiri dari dataset gambar nyata seperti MS COCO, ImageNet, LAION, foto jurnalistik, dan stok foto pemandangan/manusia.
-  2. **Artificial (AI/Fake):** Terdiri dari gambar hasil *generate* AI modern kualitas tinggi, di antaranya **Midjourney v5/v6**, **DALL-E 3**, dan **Stable Diffusion XL (SDXL)**.
-- **Sumber Jurnal/Referensi Pendukung:** Pendekatan arsitektur dan dataset ini merujuk pada penelitian deteksi AI modern seperti [ArtiFact Dataset Paper (Rahman et al., 2023)](https://arxiv.org/abs/2304.05922) yang membuktikan bahwa Vision Transformer (ViT/Swin) lebih superior dibanding CNN (ResNet) dalam mendeteksi gambar buatan AI.
+- **Dataset Pelatihan Utama (Fine-Tuning Data):** 
+  Berbeda dengan model raksasa yang sering menggunakan dataset kontroversial (seperti LAION yang melakukan *scraping* web tanpa izin/*consent*), model [`Modotte/AIRealNet`](https://huggingface.co/Modotte/AIRealNet) di-*fine-tune* secara khusus menggunakan dataset yang lebih kecil, terkurasi (*curated*), dan sadar privasi (*privacy-conscious*), yaitu **[`Parveshiiii/AI-vs-Real`](https://huggingface.co/datasets/Parveshiiii/AI-vs-Real)** (tersedia publik di HuggingFace).
+  1. Dataset ini dirancang spesifik hanya untuk *task detection* (klasifikasi), bukan untuk *generative pretraining*, sehingga fokusnya sangat tajam pada membedakan fitur visual asli dan buatan.
+  2. Pendekatan ini memastikan bahwa aplikasi **PindAI** menjunjung tinggi Etika AI (*AI Ethics*) dengan menghindari penggunaan dataset bias atau yang melanggar hak cipta massal.
+- **Sumber Jurnal/Referensi Pendukung:** Pendekatan menggunakan *Vision Transformer* (SwinV2) merujuk pada berbagai penelitian deteksi AI modern yang membuktikan bahwa arsitektur berbasis *Attention Mechanism* (ViT/Swin) lebih superior dibanding CNN tradisional (ResNet) dalam menangkap pola artefak mikro (*micro-artifacts*) buatan AI.
 - **Cara Kerja Deteksi (Fitur Utama):** Model tidak hanya melihat "apakah gambar ini bagus atau tidak", melainkan menganalisis **artefak mikro tingkat piksel (micro-artifacts)** yang sering ditinggalkan oleh *Generative AI*, seperti pola tekstur kulit yang tidak natural, asimetri pada pupil mata, pola asimetris pada latar belakang (*background*), hingga struktur geometri rambut yang tidak logis.
 - **Format:** Di-eksport dari lingkungan PyTorch (`.safetensors`) ke format **ONNX** untuk optimasi server.
 
@@ -99,7 +97,7 @@ Ketika *user* mengunggah gambar dari aplikasi Flutter, berikut adalah alur kerja
 1. **Kenapa menggunakan FastAPI dibandingkan Flask (yang dipakai pembuat model asli)?**
    - **Performa & Asynchronous:** FastAPI dibangun menggunakan arsitektur *asynchronous* (ASGI), sedangkan Flask secara *default* adalah *synchronous* (WSGI). Untuk model AI yang memakan waktu kalkulasi (misal ~1 detik), menggunakan `async`/`await` pada FastAPI memastikan server tidak "membeku" (*blocking*) saat menerima request gambar lain secara bersamaan.
    - **Validasi Data Otomatis:** FastAPI menggunakan *Pydantic* untuk memvalidasi tipe data JSON *Response*. Jika ada kesalahan tipe data (misal: confidence tiba-tiba berubah jadi *string*), API akan otomatis menolaknya dan mengembalikan error yang terstruktur, menjaga agar aplikasi Flutter kamu tidak *crash* karena *parsing error*.
-   - **Dokumentasi Otomatis:** FastAPI secara otomatis membuat halaman dokumentasi interaktif (Swagger UI) di endpoint `/docs`. Ini sangat berguna saat presentasi sidang untuk mendemonstrasikan fitur tanpa harus membuka Postman atau membuat kode antarmuka *front-end* tambahan.
+   - **Dokumentasi Otomatis:** FastAPI secara otomatis membuat halaman dokumentasi interaktif (Swagger UI) di endpoint `/docs`. Fitur ini sangat mempermudah *Frontend Developer* (tim Flutter) dalam melakukan integrasi API tanpa memerlukan dokumen eksternal seperti Postman.
 
 2. **Apa itu ONNX Runtime dan Kenapa menggunakannya (bukan PyTorch)?**
    - **ONNX (Open Neural Network Exchange)** adalah format standar terbuka untuk merepresentasikan model *machine learning*. **ONNX Runtime** adalah mesin/engine berkecepatan tinggi buatan Microsoft untuk menjalankan model ONNX.
@@ -135,11 +133,9 @@ Pustaka inti yang wajib diinstal agar API bisa berjalan di server Docker/VPS:
 - **`numpy`**: Pustaka komputasi matematika tingkat tinggi. Digunakan untuk mengubah gambar dari Pillow menjadi matriks angka (*array*), lalu melakukan normalisasi matematika (membagi nilai piksel dengan 255, mengurangi *Mean*, dan membagi dengan *Standard Deviation*) agar matriks siap dibaca AI.
 - **`onnxruntime`**: Mesin inferensi buatan Microsoft. Bertugas mengeksekusi file model `.onnx` dengan matriks gambar dari `numpy` secara sangat efisien di CPU tanpa perlu menginstal framework raksasa seperti PyTorch.
 
-### B. Lingkungan Development / Testing (`requirements-dev.txt`)
+### B. Lingkungan Development (`requirements-dev.txt`)
 Pustaka tambahan yang HANYA digunakan oleh programmer di laptop saat mengembangkan aplikasi:
 - **`transformers` & `optimum[onnxruntime]`**: Pustaka buatan HuggingFace. Digunakan HANYA di dalam `scripts/export_onnx.py` untuk mengunduh model asli AIRealNet (PyTorch) dari internet, lalu mengonversinya (Export & Quantize) menjadi format `.onnx` yang ringan.
-- **`pytest`**: Framework *Automated Testing* (Pengujian Otomatis). Digunakan untuk menjalankan 16+ skenario tes di folder `tests/` secara otomatis dengan satu perintah (seperti mengetes respon 413 jika gambar > 10MB, atau memastikan format JSON yang keluar sudah benar).
-- **`httpx`**: Klien HTTP asinkron. Dibutuhkan oleh `pytest` bersama FastAPI `TestClient` untuk mensimulasikan tembakan *request* dari Flutter ke API kita secara virtual (tanpa harus menyalakan server Uvicorn terlebih dahulu).
 
 ---
 
@@ -199,7 +195,7 @@ Bagi pengembang (developer) atau penguji yang ingin menjalankan dan memodifikasi
    ```
 
 3. **Instal Library Development & Production:**
-   Karena ini mode pengembangan (Development), instal file `requirements-dev.txt` yang sudah mencakup pustaka *Testing* dan pustaka *Production*.
+   Instal file `requirements-dev.txt` yang sudah mencakup pustaka *Production* dan pustaka untuk konversi model.
    ```bash
    pip install -r requirements-dev.txt
    ```
@@ -211,14 +207,7 @@ Bagi pengembang (developer) atau penguji yang ingin menjalankan dan memodifikasi
    ```
    *(Tunggu hingga proses selesai dan file `models/model.onnx` berhasil dibuat. Ukurannya sekitar 190MB).*
 
-5. **Jalankan Automated Testing (Opsional tapi Penting):**
-   Pastikan seluruh kode dan logika API berjalan sempurna di komputermu sebelum masuk ke tahap integrasi dengan Flutter.
-   ```bash
-   pytest tests/ -v
-   ```
-   *(Harus muncul keterangan **PASSED** pada belasan skenario pengujian).*
-
-6. **Jalankan Server Lokal (Live Reload):**
+5. **Jalankan Server Lokal (Live Reload):**
    ```bash
    uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
    ```
@@ -304,7 +293,7 @@ Teknologi *Generative AI* berkembang sangat cepat. Suatu saat, model `Modotte/AI
    python scripts/export_onnx.py
    ```
 6. Jika model baru memiliki nama *Class/Label* yang berbeda (misal: `["fake", "real"]` bukan `["artificial", "real"]`), sesuaikan array variabel `LABELS` di file `app/model.py`.
-7. *Restart* server Docker (`docker compose restart`). Server kini secara instan menggunakan model AI yang paling baru!
+7. *Restart* container Docker (`docker restart ai-detector-api`). Server kini secara instan menggunakan model AI yang paling baru!
 
 ---
 

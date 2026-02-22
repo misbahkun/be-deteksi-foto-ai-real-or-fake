@@ -7,4 +7,3 @@ dataset/
 .ruff_cache/
 .pytest_cache/
 .env
-DEPLOY.md
