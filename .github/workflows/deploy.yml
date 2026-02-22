@@ -48,6 +48,7 @@ jobs:
           SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
           SSH_PASSWORD: ${{ secrets.SSH_PASSWORD }}
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           sshpass -p "$SSH_PASSWORD" ssh -o StrictHostKeyChecking=no \
             -o ProxyCommand="cloudflared access ssh --hostname %h" \
@@ -61,5 +62,6 @@ jobs:
             -p 8000:8000 \
             -v ~/ai-detector/models:/app/models:ro \
             --memory="2g" \
+            -e GEMINI_API_KEY=$GEMINI_API_KEY \
             ${DOCKERHUB_USERNAME}/ai-image-detector:latest
           DEPLOY

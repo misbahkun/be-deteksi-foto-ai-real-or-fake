@@ -207,6 +207,13 @@ Bagi pengembang (developer) atau penguji yang ingin menjalankan dan memodifikasi
    ```
    *(Tunggu hingga proses selesai dan file `models/model.onnx` berhasil dibuat. Ukurannya sekitar 190MB).*
 
+5. **Setup Environment Variable untuk Gemini (Opsional tapi Direkomendasikan):**
+   Sistem ini menggunakan Google Gemini API untuk memberikan komentar visual. Dapatkan API Key dari Google AI Studio, lalu *export* ke environment terminalmu.
+   ```bash
+   export GEMINI_API_KEY="AIzaSy..."
+   ```
+
+6. **Jalankan Server Lokal (Live Reload):**
 5. **Jalankan Server Lokal (Live Reload):**
    ```bash
    uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
@@ -258,6 +265,7 @@ Karena file model AI (`models/model.onnx` ukuran ~190MB) **tidak dimasukkan (*ba
      --restart unless-stopped \
      -p 8000:8000 \
      -v $(pwd)/models:/app/models:ro \
+     -e GEMINI_API_KEY="AIzaSy..." \
      --memory="2g" \
      mizzcode/ai-image-detector:latest
    ```
@@ -266,6 +274,7 @@ Karena file model AI (`models/model.onnx` ukuran ~190MB) **tidak dimasukkan (*ba
    - `-d`: Berjalan di latar belakang (*background*).
    - `-p 8000:8000`: Membuka port 8000 agar bisa diakses.
    - `-v ...`: Memasang (*mount*) folder model secara *Read-Only* (`:ro`) agar model tidak termodifikasi.
+   - `-e GEMINI_API_KEY=...`: *Environment variable* untuk mengaktifkan asisten AI Gemini.
    - `--memory="2g"`: Membatasi penggunaan RAM maksimal 2GB agar server homelab tidak *crash* (OOM).
 
 4. **Cek Status & Log:**

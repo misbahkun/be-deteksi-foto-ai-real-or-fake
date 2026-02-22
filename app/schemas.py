@@ -6,3 +6,4 @@ class PredictResponse(BaseModel):
     confidence: float
     probabilities: dict[str, float]
     inference_time_ms: int
+    message: str
