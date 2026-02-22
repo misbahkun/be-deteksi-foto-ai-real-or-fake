@@ -226,25 +226,64 @@ Bagi pengembang (developer) atau penguji yang ingin menjalankan dan memodifikasi
 
 ---
 
-## 🚀 9. Cara Menjalankan (Production / Deployment)
+## 🚀 9. Cara Menjalankan (Production / Deployment menggunakan Docker)
 
-Proyek ini telah dibungkus ke dalam *Docker*, sehingga sangat mudah dijalankan di Virtual Machine (Proxmox/Ubuntu) maupun VPS cloud tanpa perlu menginstal Python secara manual.
+Proyek ini telah dibungkus dengan Docker. Karena ini adalah *single-container application*, kita bisa langsung menggunakan perintah `docker run` tanpa memerlukan `docker-compose`.
 
-### Prasyarat:
-- Pastikan file model ONNX sudah ada di dalam folder `models/model.onnx`
-- Docker & Docker Compose sudah terinstal di server.
+### A. Langkah Build & Push Image (Di Laptop/Mesin Dev)
 
-### Perintah Menjalankan:
-```bash
-# 1. Masuk ke direktori proyek
-cd be-deteksi-foto-ai-real-or-fake
+1. **Build Image Docker:**
+   Beri nama image kamu (misalnya menggunakan username Docker Hub kamu `mizzcode`).
+   ```bash
+   docker build -t mizzcode/ai-image-detector:latest .
+   ```
 
-# 2. Jalankan container di background (detached mode)
-docker compose up -d
+2. **Push ke Docker Hub (Opsional):**
+   Jika kamu ingin memindahkan image ke server/homelab dengan mudah.
+   ```bash
+   docker login
+   docker push mizzcode/ai-image-detector:latest
+   ```
 
-# 3. Melihat log server secara realtime (opsional)
-docker compose logs -f
-```
+### B. Langkah Menjalankan di Server / Homelab Proxmox
+
+Karena file model AI (`models/model.onnx` ukuran ~190MB) **tidak dimasukkan (*baked*) ke dalam image Docker** agar image tetap ringan, kamu harus mengunggah file `model.onnx` tersebut secara terpisah ke server homelab kamu.
+
+1. **Siapkan Folder & File Model di Server:**
+   ```bash
+   # Di dalam server Proxmox/Ubuntu
+   mkdir -p ~/ai-detector/models
+   ```
+   *(Pindahkan/copy file `model.onnx` dari laptop ke folder `~/ai-detector/models` di server menggunakan FileZilla atau SCP).*
+
+2. **Tarik (Pull) Image dari Docker Hub:**
+   ```bash
+   docker pull mizzcode/ai-image-detector:latest
+   ```
+
+3. **Jalankan Container (Docker Run):**
+   Gunakan perintah berikut untuk menjalankan server. Perhatikan parameter `-v` (Volume Mount) yang menghubungkan folder `models` di server fisik ke dalam container.
+   ```bash
+   docker run -d \
+     --name ai-detector-api \
+     --restart unless-stopped \
+     -p 8000:8000 \
+     -v $(pwd)/models:/app/models:ro \
+     --memory="2g" \
+     mizzcode/ai-image-detector:latest
+   ```
+
+   **Penjelasan Parameter:**
+   - `-d`: Berjalan di latar belakang (*background*).
+   - `-p 8000:8000`: Membuka port 8000 agar bisa diakses.
+   - `-v ...`: Memasang (*mount*) folder model secara *Read-Only* (`:ro`) agar model tidak termodifikasi.
+   - `--memory="2g"`: Membatasi penggunaan RAM maksimal 2GB agar server homelab tidak *crash* (OOM).
+
+4. **Cek Status & Log:**
+   ```bash
+   docker ps
+   docker logs -f ai-detector-api
+   ```
 
 Server API akan langsung berjalan di port `8000` dan siap diakses oleh aplikasi Flutter. 
 Buka `http://<IP-SERVER>:8000/docs` di browser untuk mencoba API secara interaktif melalui Swagger UI bawaan FastAPI.
