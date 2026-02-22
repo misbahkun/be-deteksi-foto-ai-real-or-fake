@@ -39,7 +39,7 @@ def preprocess_image(file_bytes: bytes) -> np.ndarray:
     img = Image.open(io.BytesIO(file_bytes))
     img = ImageOps.exif_transpose(img)
     img = img.convert("RGB")
-    img = img.resize((IMAGE_SIZE, IMAGE_SIZE), Image.Resampling.BICUBIC)
+    img = img.resize((IMAGE_SIZE, IMAGE_SIZE), Image.Resampling.BILINEAR)
 
     img_array = np.array(img, dtype=np.float32) / 255.0  # [256, 256, 3], [0,1]
     img_array = (img_array - MEAN) / STD  # ImageNet normalize
